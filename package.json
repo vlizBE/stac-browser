@@ -76,7 +76,8 @@
     "vue-multiselect": "^3.3.1",
     "vue-router": "^5.0.1",
     "vuex": "^4.1.0",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "ol-mapbox-style": "~13.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -104,9 +105,7 @@
     "vite-plugin-ejs": "^1.7.0",
     "vite-plugin-node-polyfills": "^0.25.0"
   },
-  "optionalDependencies": {
-    "ol-mapbox-style": "~13.2.0"
-  },
+  
   "browserslist": [
     "> 1%",
     "last 2 versions",
