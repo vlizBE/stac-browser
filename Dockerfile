@@ -1,39 +1,24 @@
-ARG pathPrefix="/"
-
-FROM node:lts-alpine AS build-step
-ARG DYNAMIC_CONFIG=true
-ARG historyMode="history"
-ARG pathPrefix
-ARG SB_CONFIG=""
-ENV SB_historyMode="${historyMode}"
-ENV SB_pathPrefix="${pathPrefix}"
-ENV SB_CONFIG="${SB_CONFIG}"
-
+# Stage 1: build (for production)
+FROM node:20 AS build
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN \[ "${DYNAMIC_CONFIG}" == "true" \] && sed -i 's/<!--RC//;s/RC-->//' index.html
-RUN npm run build
 
+ARG pathPrefix=/
+ENV PATH_PREFIX=$pathPrefix
 
-FROM nginxinc/nginx-unprivileged:1-alpine
-ARG pathPrefix
+RUN npm run build -- --base $PATH_PREFIX
 
-USER root
-RUN apk add --no-cache jq pcre-tools
+# Stage 2: runtime
+FROM node:20 AS runtime
+WORKDIR /app
 
-COPY ./config.schema.json /etc/nginx/conf.d/config.schema.json
-COPY --from=build-step /app/dist /usr/share/nginx/html
-COPY --from=build-step /app/docker/default.conf /etc/nginx/conf.d/default.conf
-ADD docker/docker-entrypoint.sh /docker-entrypoint.d/40-stac-browser-entrypoint.sh
+COPY --from=build /app/dist ./dist
 
-RUN sed -i "s|<pathPrefix>|${pathPrefix}|" /etc/nginx/conf.d/default.conf && \
-    chown -R nginx:nginx /usr/share/nginx/html && \
-    chmod +x /docker-entrypoint.d/40-stac-browser-entrypoint.sh
+RUN npm install -g serve
 
-EXPOSE 8080
+EXPOSE 28080
 
-STOPSIGNAL SIGTERM
-
-USER nginx
+CMD ["serve", "-s", "/app/dist", "-l", "28080", "--cors"]
