@@ -11,6 +11,8 @@ import { vBToggle } from 'bootstrap-vue-next/directives/BToggle';
 import visible from './directives/visible';
 import WidgetHook from "./plugins/WidgetHook.vue";
 
+import { initMessageBus } from "./messageBus.js";
+
 export default function init() {
   return loadDefaultMessages().then(() => {
     // Setup router
@@ -26,6 +28,9 @@ export default function init() {
         }
       }
     });
+
+    // NOTE: Message commnuication between STAC Browser and React app
+    initMessageBus(router);
 
     // Setup store
     const store = getStore(CONFIG, router);
