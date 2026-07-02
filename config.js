@@ -25,7 +25,7 @@ export default {
   displayOverviewsForChildren: false,
   buildTileUrlTemplate: null,
   getMapSourceOptions: null,
-  pathPrefix: "/",
+  pathPrefix: "./",
   historyMode: "history",
   cardViewMode: "cards",
   defaultCollectionSort: "title",

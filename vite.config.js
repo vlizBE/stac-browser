@@ -191,13 +191,15 @@ export default defineConfig(async ({ mode }) => {
       },
     },
     server: {
+      cors: true,
       fs: {
         allow: [
           searchForWorkspaceRoot(process.cwd()),
           externalConfigPath
         ],
       },
-      port: 8080,
+      host: '0.0.0.0',
+      port: 28080,
     },
   });
 });
