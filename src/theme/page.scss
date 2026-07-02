@@ -577,7 +577,7 @@ svg {
 
     .catalog-card,
     .item-card {
-      grid-row: span 7;
+      grid-row: span 6;
       border: none;
       border-radius: 8px;
 
@@ -758,7 +758,7 @@ svg {
 #stac-browser {
   .multiselect__tags {
     transition: $btn-transition;
-    background: var(--bs-body-bg);
+    background-color: $input-bg;
     border-color: var(--bs-border-color);
     color: var(--bs-body-color);
   }
@@ -807,6 +807,20 @@ svg {
   .multiselect__tag {
     margin-top: 3px;
     margin-bottom: 3px;
+  }
+
+  .multiselect__tag-icon {
+    &::before,
+    &::after {
+      color: var(--bs-white);
+    }
+
+    &:hover {
+      &::before,
+      &::after {
+        color: var(--bs-body-bg);
+      }
+    }
   }
 
   .multiselect__tag,
@@ -920,6 +934,12 @@ svg {
 
   .text-bg-dark {
     color: #{$dark} !important;
+  }
+
+  #stac-browser {
+    .multiselect__tags {
+      background-color: $input-bg-dark;
+    }
   }
 }
 
