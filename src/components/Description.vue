@@ -10,7 +10,7 @@ export default {
   props: {
     description: {
       type: String,
-      default: ''
+      default: 'No description available'
     },
     compact: {
       type: Boolean,
