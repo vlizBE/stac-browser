@@ -76,11 +76,11 @@ $border-radius: .375rem;
 // ─────────────────────────────────────────────────────────
 
 // Background and text default colors
-$body-bg: white;
-$body-color: black;
+$body-bg: #f1f0eb;
+$body-color: #2c323f;
 
 // Theme colors
-$primary:   #188191;
+$primary:   #0043ce;
 $secondary: #6c757d;
 $success:   #28a745;
 $info:      $secondary; // unused
@@ -95,11 +95,13 @@ $subheadings-color: #6c757d; // h2 only
 $headings-color: inherit; // h3, h4, h5, h6
 
 // Link colors
-$link-color: #188191;
+$link-color: $primary;
 $link-hover-color: darken($link-color, 20%);
 
 $link-color-on-primary: tint-color($primary, 60%);
 $link-hover-color-on-primary: $body-bg;
+
+$input-bg: rgb(253, 253, 252);
 
 @import 'bootstrap/scss/_variables';
 
@@ -119,5 +121,7 @@ $subheadings-color-dark: lighten($secondary, 10%);
 $headings-color-dark: inherit;
 
 $link-hover-color-dark: $body-color-dark;
+
+$input-bg-dark: transparent;
 
 @import 'bootstrap/scss/_variables-dark';

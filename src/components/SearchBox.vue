@@ -76,4 +76,12 @@ export default {
     line-height: 1;
   }
 }
+
+[data-bs-theme="dark"] {
+  #stac-browser .search-box {
+    input {
+      background-color: $input-bg-dark;
+    }
+  }
+}
 </style>
