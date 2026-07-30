@@ -1,5 +1,5 @@
 export default {
-  catalogUrl: "https://api.dive.edito.eu/data/catalogs",
+  catalogUrl: "https://api.dive.edito.eu/data/catalogs/../..",
   catalogTitle: "EDITO STAC Browser",
   catalogTitleAfterImage: null,
   catalogImage: null,
