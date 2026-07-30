@@ -87,7 +87,7 @@ export default defineConfig(async ({ mode }) => {
   const config = Object.assign({}, defaultConfig, externalConfig, env);
 
   return {
-    base: "/stacbrowser/edito",
+    base: config.pathPrefix,
     build: {
       sourcemap: mode !== "minimal",
       rollupOptions: {
