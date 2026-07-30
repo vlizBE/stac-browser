@@ -18,20 +18,22 @@ import yargs from "yargs";
 
 // Read JSON files using fs instead of require
 const configSchema = JSON.parse(
-  readFileSync(new URL("./config.schema.json", import.meta.url), "utf-8")
+  readFileSync(new URL("./config.schema.json", import.meta.url), "utf-8"),
 );
 const package_ = JSON.parse(
-  readFileSync(new URL("./package.json", import.meta.url), "utf-8")
+  readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
 );
 
 const optionsForType = (type) =>
   Object.entries(configSchema.properties)
     .filter(
-      ([, schema]) => Array.isArray(schema.type) && schema.type.includes(type)
+      ([, schema]) => Array.isArray(schema.type) && schema.type.includes(type),
     )
     .map(([key]) => key);
 
-const defaultConfigPath = fileURLToPath(new URL("./config.js", import.meta.url));
+const defaultConfigPath = fileURLToPath(
+  new URL("./config.js", import.meta.url),
+);
 
 const parseEnvConfig = (rawEnv) => {
   const envArgs = Object.entries(rawEnv)
@@ -45,8 +47,8 @@ const parseEnvConfig = (rawEnv) => {
     .array(optionsForType("array"))
     .option(
       Object.fromEntries(
-        optionsForType("object").map((k) => [k, { coerce: JSON.parse }])
-      )
+        optionsForType("object").map((k) => [k, { coerce: JSON.parse }]),
+      ),
     ).argv;
 
   delete env._;
@@ -78,12 +80,14 @@ export default defineConfig(async ({ mode }) => {
   };
   const env = parseEnvConfig(rawEnv);
   const externalConfigPath = resolveExternalConfigPath(rawEnv.SB_CONFIG);
-  const defaultConfig = (await import(pathToFileURL(defaultConfigPath).href)).default ?? {};
-  const externalConfig = (await import(pathToFileURL(externalConfigPath).href)).default ?? {};
+  const defaultConfig =
+    (await import(pathToFileURL(defaultConfigPath).href)).default ?? {};
+  const externalConfig =
+    (await import(pathToFileURL(externalConfigPath).href)).default ?? {};
   const config = Object.assign({}, defaultConfig, externalConfig, env);
 
-  return ({
-    base: config.pathPrefix,
+  return {
+    base: "/stacbrowser/edito",
     build: {
       sourcemap: mode !== "minimal",
       rollupOptions: {
@@ -95,7 +99,12 @@ export default defineConfig(async ({ mode }) => {
         scss: {
           api: "modern-compiler",
           // todo: remove in STAC Browser V6 or if resolved by bootstrap-vue-next.
-          silenceDeprecations: ["color-functions", "global-builtin", "import", "if-function"],
+          silenceDeprecations: [
+            "color-functions",
+            "global-builtin",
+            "import",
+            "if-function",
+          ],
         },
       },
     },
@@ -113,7 +122,7 @@ export default defineConfig(async ({ mode }) => {
         "@radiantearth/stac-fields/*",
         "content-type",
         "stac-node-validator",
-        "@musement/iso-duration"
+        "@musement/iso-duration",
       ],
     },
     plugins: [
@@ -193,13 +202,10 @@ export default defineConfig(async ({ mode }) => {
     server: {
       cors: true,
       fs: {
-        allow: [
-          searchForWorkspaceRoot(process.cwd()),
-          externalConfigPath
-        ],
+        allow: [searchForWorkspaceRoot(process.cwd()), externalConfigPath],
       },
-      host: '0.0.0.0',
+      host: "0.0.0.0",
       port: 28080,
     },
-  });
+  };
 });
