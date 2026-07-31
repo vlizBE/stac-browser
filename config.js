@@ -45,6 +45,9 @@ export default {
   socialSharing: ['email', 'bsky', 'mastodon', 'x'],
   preprocessSTAC: null,
   authConfig: null,
+  transactions: true,
+  transactionsRequireLogin: true,
+  transactionsRequirePreflight: true,
   crs: {},
   footerLinks: null
 };
