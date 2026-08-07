@@ -1,5 +1,9 @@
 # STAC Browser
 
+**NOTE:** This branch contains modifications of the STAC Browser styling to match the EDITO Datalab.
+
+---
+
 This is a full-fledged [Spatio-Temporal Asset Catalog (STAC)](https://github.com/radiantearth/stac-spec) browser for STAC APIs and static STAC catalogs.
 
 Version: **5.0.0** (supports all STAC versions between 0.6.0 and 1.1.0)
