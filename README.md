@@ -1,8 +1,19 @@
 # STAC Browser
 
+**NOTE:** This branch extends the 'edito' branch. Its purpose is to provide an application that runs on a Docker server and is embedded within the EDITO Datalab app via an iframe. To enable communication between the STAC Browser and the EDITO Datalab app, and to support URL synchronization, a message bus has been added.
+
+STAC Browsers are hosted on Vliz Docker servers and are accessed through subfolders, e.g. /stacbrowser/edito/.
+To build the Docker image and start the Docker container, use the following Docker commands:
+- docker build --build-arg pathPrefix="/stacbrowser/edito/" --build-arg historyMode="hash" -t edito-stac-browser .
+- docker run --name edito-stac-browser -p 28081:8080 edito-stac-browser
+
+Once the container is running, the STAC Browser can be accessed at: http://localhost:28081/stacbrowser/edito/.
+
+---
+
 This is a full-fledged [Spatio-Temporal Asset Catalog (STAC)](https://github.com/radiantearth/stac-spec) browser for STAC APIs and static STAC catalogs.
 
-Version: **5.0.0-dev** (supports all STAC versions between 0.6.0 and 1.1.0)
+Version: **5.0.0** (supports all STAC versions between 0.6.0 and 1.1.0)
 
 This package has also been published to npm as [`@radiantearth/stac-browser`](https://www.npmjs.com/package/@radiantearth/stac-browser).
 
@@ -40,7 +51,7 @@ If you care about STAC Browser and have some funds to support the future of STAC
 
 ## Examples
 
-A demo instance is running at <https://radiantearth.github.io/stac-browser/>.
+A demo instance is running at <https://browser.moregeo.it>.
 
 The catalog section of [STAC Index](https://stacindex.org) is also built on top of STAC Browser (currently v2).
 
