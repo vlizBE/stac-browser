@@ -28,6 +28,7 @@ export default {
   pathPrefix: "/",
   historyMode: "history",
   cardViewMode: "cards",
+  showFavorites: true,
   defaultCollectionSort: "title",
   defaultItemSort: null,
   showKeywordsInItemCards: false,

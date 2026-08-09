@@ -559,6 +559,13 @@ svg {
       border: none;
       border-radius: 8px;
 
+      // Workaround for a WebKit subgrid bug that clips the last row (the footer);
+      // pinning an empty item to it forces Safari to size it. Remove once fixed.
+      &::after {
+        content: "";
+        grid-row: 6;
+      }
+
       .card-body {
         display: grid;
         grid-template-rows: subgrid;
