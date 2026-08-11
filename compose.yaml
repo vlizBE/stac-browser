@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  edito-stac-browser:
+    container_name: edito-stac-browser
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        pathPrefix: "/stacbrowser/edito"
+        historyMode: "hash"
+    image: edito-stac-browser:latest
+    ports:
+      - "28081:8080"
+    restart: always
+

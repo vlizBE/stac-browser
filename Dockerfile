@@ -1,4 +1,9 @@
 FROM node:lts-alpine AS build-step
+
+LABEL be.vliz.container.description="EDITO STAC browser"
+LABEL be.vliz.container.project="edito"
+LABEL be.vliz.container.vcs-url="https://github.com/vlizBE/stac-browser"
+
 ARG DYNAMIC_CONFIG=true
 ARG historyMode="history"
 ARG SB_CONFIG=""

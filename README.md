@@ -5,7 +5,9 @@
 STAC Browsers are hosted on Vliz Docker servers and are accessed through subfolders, e.g. /stacbrowser/edito/.
 To build the Docker image and start the Docker container, use the following Docker commands:
 - docker build --build-arg pathPrefix="/stacbrowser/edito/" --build-arg historyMode="hash" -t edito-stac-browser .
-- docker run --name edito-stac-browser -p 28081:8080 edito-stac-browser
+- docker run --name edito-stac-browser -d --restart always -p 28081:8080 edito-stac-browser
+or run the compose.yaml with the following command:
+- docker compose up -d --build
 
 Once the container is running, the STAC Browser can be accessed at: http://localhost:28081/stacbrowser/edito/.
 
