@@ -8,6 +8,8 @@ services:
       args:
         pathPrefix: "/stacbrowser/edito"
         historyMode: "hash"
+    environment:
+      - SB_historyMode=hash
     image: edito-stac-browser:latest
     ports:
       - "28081:8080"

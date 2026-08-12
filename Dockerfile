@@ -21,6 +21,7 @@ RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1-alpine
 ARG pathPrefix="/"
+ARG historyMode="history"
 
 USER root
 RUN apk add --no-cache jq pcre-tools
@@ -36,6 +37,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf && \
     chmod +x /docker-entrypoint.d/40-stac-browser-entrypoint.sh
 
 ENV SB_pathPrefix="${pathPrefix}"
+ENV SB_historyMode="${historyMode}"
 
 EXPOSE 8080
 

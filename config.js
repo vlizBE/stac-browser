@@ -1,5 +1,5 @@
 export default {
-  catalogUrl: "https://api.dive.edito.eu/data/catalogs",
+  catalogUrl: "https://api.dive.edito.eu/data",
   catalogTitle: "EDITO STAC Browser",
   catalogTitleAfterImage: null,
   catalogImage: null,
@@ -20,7 +20,7 @@ export default {
   buildTileUrlTemplate: null,
   getMapSourceOptions: null,
   pathPrefix: "/",
-  historyMode: "history",
+  historyMode: "hash",
   cardViewMode: "cards",
   defaultCollectionSort: "title",
   defaultItemSort: null,
