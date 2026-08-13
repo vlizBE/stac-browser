@@ -23,6 +23,7 @@ export default {
   displayPreview: true,
   displayOverview: true,
   displayOverviewsForChildren: false,
+  maxDisplayPixels: null,
   buildTileUrlTemplate: null,
   getMapSourceOptions: null,
   pathPrefix: "/",
