@@ -1,15 +1,20 @@
 # STAC Browser
 
-**NOTE:** This branch extends the 'edito' branch. Its purpose is to provide an application that runs on a Docker server and is embedded within the EDITO Datalab app via an iframe. To enable communication between the STAC Browser and the EDITO Datalab app, and to support URL synchronization, a message bus has been added.
+**NOTE:** This branch extends the 'edito' branch, which contains modifications of the STAC Browser styling to match the EDITO Datalab. The purpose of the 'edito-iframe' branch is to provide an application that runs on a Docker server and is embedded in the EDITO Datalab app via an iframe. To enable communication between the STAC Browser and the EDITO Datalab app, and to support URL synchronization, a message bus has been added.
 
 STAC Browsers are hosted on Vliz Docker servers and are accessed through subfolders, e.g. /stacbrowser/edito/.
 To build the Docker image and start the Docker container, use the following Docker commands:
 - docker build --build-arg pathPrefix="/stacbrowser/edito/" --build-arg historyMode="hash" -t edito-stac-browser .
 - docker run --name edito-stac-browser -d --restart always -p 28081:8080 edito-stac-browser
+
 or run the compose.yaml with the following command:
 - docker compose up -d --build
 
 Once the container is running, the STAC Browser can be accessed at: http://localhost:28081/stacbrowser/edito/.
+
+The URL subfolder has to be added as pathPrefix of the build to compile static assets and prevent loading issues in the browser, e.g. MIME type errors. The historyMode is set to "hash" for the STAC browser deployment to prevent routing conflicts with the parent website’s backend router, while leaving its routing configuration untouched.
+
+The catalogUrl in config.js specifies the STAC Browser API endpoint. It should end with /data to enable the STAC Browser’s search functionality (http://docker.vliz.be:28081/stacbrowser/edito/#/search?.searchtype=items).
 
 ---
 
