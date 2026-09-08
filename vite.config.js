@@ -24,11 +24,12 @@ const package_ = JSON.parse(
   readFileSync(new URL("./package.json", import.meta.url), "utf-8"),
 );
 
+const isSchemaType = (schema, type) =>
+  Array.isArray(schema.type) ? schema.type.includes(type) : (schema.type === type);
+
 const optionsForType = (type) =>
   Object.entries(configSchema.properties)
-    .filter(
-      ([, schema]) => Array.isArray(schema.type) && schema.type.includes(type),
-    )
+    .filter(([, schema]) => isSchemaType(schema, type))
     .map(([key]) => key);
 
 const defaultConfigPath = fileURLToPath(
@@ -147,8 +148,10 @@ export default defineConfig(async ({ mode }) => {
         "commonmark",
         "@radiantearth/stac-fields/*",
         "content-type",
+        "json-source-map",
         "stac-node-validator",
-        "@musement/iso-duration",
+        "stac-node-validator/src/baseValidator.js",
+        "@musement/iso-duration"
       ],
     },
     plugins: [
@@ -237,6 +240,15 @@ export default defineConfig(async ({ mode }) => {
       },
       host: "0.0.0.0",
       port: 8080,
+      // During e2e runs, pre-transform the lazily-imported route views and
+      // async components on server start. Otherwise the first in-app navigation
+      // to them (Search view, Sidebar tree, item filter, …) races the cold vite
+      // transform and can take many seconds under parallel worker load, causing
+      // intermittent timeouts. Warmup runs in the background and does not delay
+      // server readiness. Scoped to e2e so normal dev startup is unaffected.
+      warmup: process.env.STAC_BROWSER_E2E === "true"
+        ? { clientFiles: ["./src/**/*.vue"] }
+        : undefined,
     },
   });
 });

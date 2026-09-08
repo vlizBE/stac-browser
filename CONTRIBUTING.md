@@ -19,7 +19,7 @@ so you need a recent version of [NodeJS and npm](https://nodejs.org/en/) install
 You can run the following commands (see also "[Get started](README.md#get-started)" in the README):
 
 - Getting Started
-  - `npm run install`: Install the dependencies, this is required once at the beginning.
+  - `npm install`: Install the dependencies, this is required once at the beginning.
   - `npm start`: Start the development server
 - Linting
   - `npm run lint`: Lint the source code files
@@ -44,6 +44,8 @@ For work on testing fixtures, test fixture documentation can be found [here](tes
 Tests are located in the `tests/e2e` directory and follow the naming convention `*.spec.js`.
 
 ## Running Tests
+
+Before running the tests, you have to install a Playwright browser (`npx playwright install`) and Docker.
 
 - `npm test`: Run all tests
 - `npm run test:e2e:ui`: Run UI tests in UI mode (interactive)

@@ -20,7 +20,8 @@ export default class ActionPlugin {
     if (href) {
       return {
         href,
-        target: '_blank'
+        target: '_blank',
+        rel: 'noopener noreferrer',
       };
     }
     return {};
@@ -44,6 +45,12 @@ export default class ActionPlugin {
 
   get text() {
     return i18n.global.t('open');
+  }
+
+  // Tooltip for the button, shown especially when rendered compact (icon-only).
+  // Defaults to the button text.
+  get title() {
+    return this.text;
   }
 
 }

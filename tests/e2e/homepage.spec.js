@@ -9,11 +9,10 @@
 import { test, expect } from './fixtures.js';
 import { HOME_PATH, mockStacResource } from './helpers.js';
 import StaticCatalog from '../fixtures/instances/static.js';
-import path from 'path';
 import fs from 'fs';
-const catalogs = JSON.parse(fs.readFileSync(path.resolve(
-  import.meta.dirname, '../fixtures/templates/catalogs.json'
-)));
+const catalogs = JSON.parse(fs.readFileSync(
+  new URL('../fixtures/templates/catalogs.json', import.meta.url), 'utf-8'
+));
 import CONFIG from '../../config.js';
 
 test.describe('STAC Browser Data Source Selection', () => {
@@ -141,7 +140,7 @@ test.describe('STAC Browser Data Source Selection', () => {
     
     // Wait for navigation and verify the catalog title appears as h1 heading
     const catalogTitle = page.getByRole('heading', { name: /microsoft planetary computer stac api/i });
-    await expect(catalogTitle).toBeVisible({ timeout: 10000 });
+    await expect(catalogTitle).toBeVisible();
     
     // Verify the page title changed
     await expect(page).toHaveTitle(/microsoft planetary computer stac api/i);
@@ -167,7 +166,7 @@ test.describe('STAC Browser Data Source Selection', () => {
     
     // Wait for navigation and verify the catalog title appears as h1 heading
     const catalogTitle = page.getByRole('heading', { name: new RegExp(expectedTitle, 'i') });
-    await expect(catalogTitle).toBeVisible({ timeout: 10000 });
+    await expect(catalogTitle).toBeVisible();
     
     // Verify the page title changed
     await expect(page).toHaveTitle(new RegExp(expectedTitle, 'i'));

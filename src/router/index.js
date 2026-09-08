@@ -57,6 +57,44 @@ function getRoutes(config) {
     props: route => getPath(route, config)
   });
 
+  if (config.showFavorites) {
+    routes.push({
+      path: "/favorites",
+      name: "favorites",
+      component: () => import("../views/Favorites.vue")
+    });
+  }
+
+  routes.push({
+    path: "/management/edit/:pathMatch(.*)*",
+    name: "managementEdit",
+    component: () => import("../views/Edit.vue"),
+    props: route => ({
+      ...getPath(route, config),
+      mode: 'edit'
+    })
+  });
+
+  routes.push({
+    path: "/management/create-item/:pathMatch(.*)*",
+    name: "managementCreateItem",
+    component: () => import("../views/Edit.vue"),
+    props: route => ({
+      ...getPath(route, config),
+      mode: 'create-item'
+    })
+  });
+
+  routes.push({
+    path: "/management/create-collection/:pathMatch(.*)*",
+    name: "managementCreateCollection",
+    component: () => import("../views/Edit.vue"),
+    props: route => ({
+      ...getPath(route, config),
+      mode: 'create-collection'
+    })
+  });
+
   routes.push({
     path: "/:pathMatch(.*)*",
     name: "browse",
@@ -65,7 +103,7 @@ function getRoutes(config) {
   });
 
   // if you add new routes that may include .../external/... in the path make sure
-  // to add the new path prefix to the fromBrowserPath regexp in store/index.js
+  // to add the new path prefix to the externalBrowserPathRE regexp in utils.js
 
   return routes;
 }

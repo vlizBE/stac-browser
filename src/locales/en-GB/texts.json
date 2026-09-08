@@ -27,6 +27,9 @@
     "noExternalAccess": "Accessing external catalogues is not allowed!"
   },
   "exampleCode": {},
+  "favorites": {
+    "exportFormats": {}
+  },
   "features": {},
   "fullscreen": {},
   "goBack": {},
@@ -37,11 +40,13 @@
     "specifyCatalog": "Please specify a STAC Catalogue or API..."
   },
   "items": {},
+  "manage": {},
   "mapping": {
     "attribution": {},
     "bboxSelect": {
       "error": {}
     },
+    "displayLimit": {},
     "layers": {},
     "location": {},
     "zoom": {

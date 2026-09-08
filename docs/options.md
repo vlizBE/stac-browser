@@ -42,7 +42,7 @@ The override order for the configuration is:
 
 > [!CAUTION]  
 > Appending configuration options as CLI parameters to the CLI command (e.g. `npm run build -- --catalogUrl="https://example.com"`) has been removed in  STAC Browser v5.
-> The reason is that such parameters are [not suppored by Vite](https://github.com/vitejs/vite/issues/7065).
+> The reason is that such parameters are [not supported by Vite](https://github.com/vitejs/vite/issues/7065).
 
 ## Table of Contents <!-- omit in toc -->
 
@@ -66,6 +66,7 @@ The override order for the configuration is:
     - [API Keys](#api-keys)
     - [HTTP Basic](#http-basic)
     - [OpenID Connect](#openid-connect)
+    - [What gets authenticated](#what-gets-authenticated)
 - [Internationalization and Localization](#internationalization-and-localization)
   - [locale](#locale)
   - [fallbackLocale](#fallbacklocale)
@@ -79,11 +80,14 @@ The override order for the configuration is:
   - [displayOverview](#displayoverview)
   - [displayOverviewsForChildren](#displayoverviewsforchildren)
   - [displayGeoTiffByDefault](#displaygeotiffbydefault)
+  - [maxDisplayPixels](#maxdisplaypixels)
   - [crs](#crs)
   - [getMapSourceOptions](#getmapsourceoptions)
+  - [getStacLayerOptions](#getstaclayeroptions)
 - [User Interface](#user-interface)
   - [enforcedColorMode](#enforcedcolormode)
   - [cardViewMode](#cardviewmode)
+  - [showFavorites](#showfavorites)
   - [showKeywordsInItemCards](#showkeywordsinitemcards)
   - [showKeywordsInCatalogCards](#showkeywordsincatalogcards)
   - [defaultThumbnailSize](#defaultthumbnailsize)
@@ -97,6 +101,10 @@ The override order for the configuration is:
 - [Assets](#assets)
   - [preferredAssets](#preferredassets)
   - [showThumbnailsAsAssets](#showthumbnailsasassets)
+- [Transactions](#transactions)
+  - [transactions](#transactions-1)
+  - [transactionsRequireLogin](#transactionsrequirelogin)
+  - [transactionsRequirePreflight](#transactionsrequirepreflight)
 - [Service Integration](#service-integration)
   - [socialSharing](#socialsharing)
 - [Advanced](#advanced)
@@ -170,6 +178,8 @@ The following options are available:
 - `collections`: Show only collections
 - `childs`: Show only children
 - `null`: Default behavior
+
+This option only applies to catalogs and collections, it never hides items.
 
 ## Deployment
 
@@ -341,6 +351,29 @@ For a given token `123` this results in the following additional HTTP Header:
 
 You can change the default behaviour to send it as a Bearer token by providing `in`, `name` and `format`.
 
+#### What gets authenticated
+
+The credentials (query parameters or HTTP headers) are attached to all requests for URLs that are
+part of the catalog (see [`allowedDomains`](#alloweddomains)), external URLs never receive credentials:
+
+- STAC documents (catalogs, collections, items, API requests)
+- Downloads
+- Thumbnails, icons and logos: As `<img>` elements can't send HTTP headers, images that require
+  header-based credentials are loaded through an authenticated request and shown via an object URL.
+  A failed image request does NOT open the login form; the image falls back to loading without headers.
+- The map: GeoTIFF/COG, GeoZarr and PMTiles requests, preview images, XYZ/TileJSON/WMS/WMTS tiles,
+  TileJSON manifests, WMTS capabilities requests (incl. basemaps), and vector tile basemaps
+  (via a default ol-mapbox-style `transformRequest`, see [Basemaps](basemaps.md)).
+- External viewer actions (e.g. geojson.io, see `assetActions.config.js`) are hidden when the data
+  requires header-based credentials, as external services can't receive them. With query-based
+  credentials the actions remain available (the credentials are part of the URL that is passed on).
+
+Known limitations:
+
+- Header-based credentials for images and tiles require the server to allow the headers in
+  CORS preflight requests (the Fetch API is stricter than plain `<img>` elements).
+- Cookie-based authentication works independently of all this via [`crossOriginMedia: 'use-credentials'`](#crossoriginmedia).
+
 ## Internationalization and Localization
 
 ### locale
@@ -472,6 +505,16 @@ Loading non-cloud-optimized GeoTiffs only works reliably for smaller files (< 1M
 
 Related OpenLayers issue: [openlayers#16961](https://github.com/openlayers/openlayers/issues/16961)
 
+### maxDisplayPixels
+
+Corresponds to the ol-stac parameter `maxDisplayPixels`.
+
+The maximum number of pixels the coarsest resolution level of a GeoTIFF or Zarr asset may have to be displayed on the map, as displaying the full extent of an asset loads every tile of that level. Files without (sufficient) overviews, e.g. GeoTIFFs that are not cloud-optimized or single-resolution Zarr stores, can easily exceed this limit.
+
+Larger assets are not shown on the map automatically. When such an asset is selected through the "Show on map" button, STAC Browser asks for confirmation before displaying it.
+
+If set to `null` (default), the ol-stac default (16 megapixels) applies. Set to a higher number to allow larger assets, or to `Infinity` to display assets of any size without confirmation.
+
 ### crs
 
 An object of coordinate reference systems that the system needs to know.
@@ -493,7 +536,13 @@ Example for EPSG:2056:
 
 Corresponds to the ol-stac parameter `getSourceOptions`:
 
-> Optional function that can be used to configure the underlying sources. The function can do any additional work and return the completed options or a promise for the same. The function will be called with the current source options and the STAC Asset or Link. This can be useful for adding auth information such as an API token, either via query parameter or HTTP headers. Please be aware that sending HTTP headers may not be supported by all sources.
+> Optional function that can be used to configure the underlying sources. The function can do any additional work and return the completed options or a promise for the same. The function will be called with the current source options and the STAC Asset or Link.
+
+STAC Browser applies the configured query parameters (incl. query-based credentials from
+[`authConfig`](#authconfig)) to the URLs through the ol-stac option `getRequestUrl`, which runs
+before the function provided here, so the options already contain the final URLs. Header-based
+credentials are attached separately through the ol-stac option `getRequestHeaders`.
+Neither needs to be handled here.
 
 The function that can be provided for getMapSourceOptions has the following signature:
 
@@ -512,6 +561,44 @@ getSourceOptions: async (type, options) => {
 }
 ```
 
+### getStacLayerOptions
+
+A function that can customize the options of the individual OpenLayers layers that
+[ol-stac](https://m-mohr.github.io/ol-stac/) creates for the assets and links of a STAC object.
+It is passed through to the [`getLayerOptions` option of the ol-stac `STACLayer`](https://m-mohr.github.io/ol-stac/en/latest/apidoc/module-ol-stac_layer_STAC-STACLayer.html)
+and is called right before each individual layer is created:
+
+```js
+getStacLayerOptions(type, options, reference) => options | Promise<options>
+```
+
+- `type` is the [layer type](https://m-mohr.github.io/ol-stac/en/latest/apidoc/module-ol-stac_layer_type-LayerType.html)
+  that is going to be created (compare with `String(type)`, e.g. `'WebGLTile'` for GeoTIFF and GeoZarr layers).
+- `options` are the assembled layer options.
+- `reference` is the STAC Asset or Link the layer is created for.
+
+The function can be asynchronous, e.g. to load a style definition that is referenced in the
+STAC metadata, which only delays the creation of the individual layer.
+
+This allows to customize the map rendering per asset or link, for example to provide a
+[style](https://openlayers.org/en/latest/apidoc/module-ol_layer_WebGLTile.js.html#~Style)
+for GeoTIFF or GeoZarr layers (e.g. rescaling single-band data that would otherwise render
+without contrast).
+
+For example, the following code would apply a grayscale style to all GeoZarr/GeoTIFF layers
+of a specific collection:
+
+```js
+getStacLayerOptions: (type, options, reference) => {
+  if (String(type) === 'WebGLTile' && reference.getContext()?.collection === 'my-datacubes') {
+    options.style = {
+      color: ['array', ['/', ['band', 1], 4000], ['/', ['band', 1], 4000], ['/', ['band', 1], 4000], 1]
+    };
+  }
+  return options;
+}
+```
+
 ## User Interface
 
 ### enforcedColorMode
@@ -522,7 +609,17 @@ This config option allows to enforce a specific color mode, either `light` (defa
 
 ### cardViewMode
 
-The default view mode for lists of catalogs/collections. Either `"list"` or `"cards"` (default).
+The default view mode for lists of catalogs, collections and items. Either `"list"` or `"cards"` (default).
+
+### showFavorites
+
+Enables the favorites functionality if set to `true` (default).
+Users can mark catalogs, collections and items as favorites and revisit them
+on a separate page, which is available through a button in the header.
+The favorites are only stored locally in the web browser of the user,
+they are not synchronized across devices or browsers.
+Users can export the favorites to a file and import them elsewhere.
+Set this option to `false` to disable the functionality.
 
 ### showKeywordsInItemCards
 
@@ -622,6 +719,58 @@ This is useful when you want to automatically display a specific asset variant (
 ### showThumbnailsAsAssets
 
 Defines whether thumbnails are shown in the lists of assets (`true`) or not (`false`, default).
+
+## Transactions
+
+These options configure how the management of STAC entities should work in STAC Browser.
+There are two ways to manage STAC entities:
+
+- **Internal**: The management user interface built into STAC Browser,
+  which uses the STAC API transaction extensions and is only offered if the API
+  advertises the corresponding conformance classes.
+- **External**: A web-based management user interface provided by the server through links with the
+  relation types `create-form` and `edit-form` (see [RFC 6861](https://www.rfc-editor.org/rfc/rfc6861.html))
+  on the current catalog, collection or item.
+  The first link per relation type that has no media type or a HTML media type (`text/html`) is used.
+  The links are shown in the "Manage" menu, open in a new tab, and use the link `title` as the label.
+  STAC Browser does no permission handling for external links; the target server is expected to handle
+  authentication and permissions itself.
+
+### transactions
+
+Defines which management capabilities are offered in STAC Browser:
+
+- `auto` (default): Prefer external links per action if present, i.e. a `create-form` link replaces the
+  internal "Add Collection" / "Add Item" actions and an `edit-form` link replaces the internal "Edit" action.
+  Otherwise, fall back to the internal user interface if supported by the API.
+  The internal "Delete" action is offered independently as there's no external counterpart.
+- `external`: Only offer the external links, if present.
+- `internal`: Only offer the internal user interface, if supported by the API.
+- `off`: Disable all management capabilities.
+
+### transactionsRequireLogin
+
+This option only affects the internal management user interface.
+
+By default (option set to `true`), management capabilities will not be shown to unauthenticated users.
+You can disable this check by setting this option to `false` and allow anyone to make transactional requests.
+
+Disabling this is usually only reasonable for testing purposes or internal STAC APIs.
+This only works in STAC Browser if the server is also configured this way.
+
+### transactionsRequirePreflight
+
+This option only affects the internal management user interface.
+
+By default (option set to `true`), STAC Browser will check whether a user has permissions to make transactional requests through an `OPTIONS` HTTP request to the same resource that it checks the permissions for.
+STAC Browser reads the permitted methods from the `Allow` response header.
+See [ogcapi-features issue 1005](https://github.com/opengeospatial/ogcapi-features/issues/1005) for details.
+You can disable this check by setting this option to `false` and allow any authenticated user to make transactional requests.
+
+For APIs served from a different origin, the server must also expose the `Allow` header to the browser via CORS (i.e. send `Access-Control-Expose-Headers: Allow`), otherwise the browser hides it from STAC Browser and no management actions will be offered.
+
+Disabling this is usually only reasonable for testing purposes or internal STAC APIs.
+This only works in STAC Browser if the server is also configured this way.
 
 ## Service Integration
 

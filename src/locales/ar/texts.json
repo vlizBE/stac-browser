@@ -112,6 +112,9 @@
     "unauthorized": "يفتقر الطلب إلى بيانات الاعتماد، مثل رمز API. يرجى تقديم بيانات الاعتماد والمحاولة مرة أخرى."
   },
   "exampleCode": {},
+  "favorites": {
+    "exportFormats": {}
+  },
   "featureExperimental": "هذه الميزة لا تزال تجريبية وقد تعطي نتائج غير متوقعة!",
   "features": {},
   "fullscreen": {
@@ -151,12 +154,14 @@
     "showFilter": "إظهار عوامل التصفية"
   },
   "loading": "جارٍ التحميل...",
+  "manage": {},
   "map": "الخريطة",
   "mapping": {
     "attribution": {},
     "bboxSelect": {
       "error": {}
     },
+    "displayLimit": {},
     "layers": {},
     "location": {},
     "zoom": {

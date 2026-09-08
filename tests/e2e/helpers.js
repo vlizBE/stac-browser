@@ -62,6 +62,248 @@ export async function mockStacError(worker, url, status = 404, message = 'Not Fo
   );
 }
 
+// ─── Management / Transaction Helpers ───────────────────────────────────────
+
+/**
+* Inject STAC Browser config overrides before the app boots.
+*
+* Merged-config reads `window.STAC_BROWSER_CONFIG` at module load, so this must
+* run before any navigation. Use it to toggle the transaction options that
+* otherwise default to `true` (requiring login and an OPTIONS preflight).
+*
+* @param {import('@playwright/test').Page} page
+* @param {object} [overrides] – config keys to override (e.g. transactionsRequireLogin)
+*/
+export async function configureBrowser(page, overrides = {}) {
+  await page.addInitScript((config) => {
+    window.STAC_BROWSER_CONFIG = Object.assign({}, window.STAC_BROWSER_CONFIG, config);
+  }, overrides);
+}
+
+/**
+* Enable the management UI without login or preflight so the transaction
+* controls are reachable in a test. Callers still need a server that advertises
+* the relevant transaction conformance classes.
+*
+* @param {import('@playwright/test').Page} page
+* @param {object} [overrides] – extra config overrides merged on top
+*/
+export async function enableTransactions(page, overrides = {}) {
+  await configureBrowser(page, {
+    transactions: 'auto',
+    transactionsRequireLogin: false,
+    transactionsRequirePreflight: false,
+    ...overrides
+  });
+}
+
+/**
+* Mock an OPTIONS preflight response that advertises the allowed HTTP methods
+* via the `Allow` header (comma-separated, as real servers send it).
+*
+* @param {import('playwright-msw').MockServiceWorker} worker
+* @param {string} url – exact URL to intercept
+* @param {string[]} [methods=[]] – allowed methods, e.g. ['GET', 'PUT', 'DELETE']
+*/
+export async function mockOptions(worker, url, methods = []) {
+  await worker.use(
+    http.options(url, () =>
+      // Use 200 with a (empty) body rather than 204: MSW's service worker drops
+      // response headers on a null-body 204, which would hide the Allow header.
+      // `Allow` is not a CORS-safelisted response header, so a cross-origin server
+      // must also expose it explicitly for the browser to let JS read it.
+      HttpResponse.json({}, {
+        status: 200,
+        headers: {
+          Allow: methods.join(', '),
+          'Access-Control-Expose-Headers': 'Allow'
+        }
+      })
+    )
+  );
+}
+
+/**
+* Mock a transactional write (PUT/POST/DELETE) response for a URL.
+*
+* @param {import('playwright-msw').MockServiceWorker} worker
+* @param {'put'|'post'|'delete'} method
+* @param {string} url – exact URL to intercept
+* @param {object} [options]
+* @param {number} [options.status] – response status (defaults per method)
+* @param {string} [options.location] – Location header (for POST create)
+* @param {object|null} [options.body] – JSON body to return (null → empty body)
+*/
+export async function mockTransaction(worker, method, url, options = {}) {
+  let status = options.status;
+  if (status === undefined) {
+    if (method === 'post') {
+      status = 201;
+    } else if (method === 'delete') {
+      status = 204;
+    } else {
+      status = 200;
+    }
+  }
+  const headers = {};
+  if (options.location) {
+    headers.Location = options.location;
+  }
+  await worker.use(
+    http[method](url, () => {
+      if (options.body === null || status === 204) {
+        return new HttpResponse(null, { status, headers });
+      }
+      return HttpResponse.json(options.body ?? {}, { status, headers });
+    })
+  );
+}
+
+/**
+* Open the "Manage" dropdown in the source toolbar and return its locator.
+*
+* @param {import('@playwright/test').Page} page
+* @returns {Promise<import('@playwright/test').Locator>} the open dropdown menu
+*/
+export async function openManageMenu(page) {
+  const button = page.getByRole('button', { name: /manage/i });
+  await expect(button).toBeVisible();
+  await button.click();
+  const menu = page.locator('.dropdown-menu.show');
+  await expect(menu).toBeVisible();
+  return menu;
+}
+
+// ─── Authentication Helpers ──────────────────────────────────────────────────
+
+/**
+* Guard a mocked URL with an authentication check.
+*
+* Registers an MSW handler that returns 401 unless `check(request)` passes.
+* When the check passes, the handler yields (returns undefined) so the regular
+* resource handler (e.g. registered by `instance.createServer`) builds the
+* response. Register this AFTER `createServer` — for the same path, handlers
+* registered later take precedence in playwright-msw.
+*
+* @param {import('playwright-msw').MockServiceWorker} worker
+* @param {string} url – exact URL to guard
+* @param {(request: Request) => boolean} check – returns true when the request is authenticated
+*/
+export async function requireAuth(worker, url, check) {
+  await worker.use(
+    http.get(url, ({ request }) => {
+      if (check(request)) {
+        return undefined; // fall through to the resource handler
+      }
+      return HttpResponse.json(
+        { code: 401, description: 'Unauthorized' },
+        { status: 401 },
+      );
+    }),
+  );
+}
+
+/**
+* Record the headers of every request to a URL without affecting the response.
+*
+* Registers a pass-through MSW handler that stores each request's headers and
+* yields to the regular resource handler. Register AFTER `createServer` so it
+* runs first (later handlers take precedence in playwright-msw).
+*
+* Prefer this over `page.waitForRequest` when the request may fire at an
+* unpredictable time (e.g. the background prefetch of catalog cards): the
+* handler sees every request from the start, so there is no race between the
+* request and the registration of a waiter.
+*
+* @param {import('playwright-msw').MockServiceWorker} worker
+* @param {string} url – exact URL to observe
+* @returns {Promise<Array<Record<string, string>>>} live array with one header record (lowercase names) per request
+*/
+export async function recordRequestHeaders(worker, url) {
+  const requests = [];
+  await worker.use(
+    http.get(url, ({ request }) => {
+      requests.push(Object.fromEntries(request.headers));
+      return undefined; // fall through to the resource handler
+    }),
+  );
+  return requests;
+}
+
+/**
+* Serve a 1x1 PNG for a URL, optionally guarded by an authentication check,
+* and record all requests to it.
+*
+* Returns the list of recorded requests (`{url, headers}`), which is filled
+* as requests arrive — use `expect.poll` to await it.
+*
+* @param {import('playwright-msw').MockServiceWorker} worker
+* @param {string} url – exact URL to serve the image for
+* @param {(request: Request) => boolean} [check] – when given, requests failing the check get a 401
+* @returns {Promise<Array<{url: string, headers: Object}>>} the recorded requests
+*/
+export async function mockImage(worker, url, check = null) {
+  // A 1x1 transparent PNG
+  const png = Uint8Array.from(
+    atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    c => c.charCodeAt(0),
+  );
+  const requests = [];
+  await worker.use(
+    http.get(url, ({ request }) => {
+      requests.push({
+        url: request.url,
+        headers: Object.fromEntries(request.headers.entries()),
+      });
+      if (check && !check(request)) {
+        return new HttpResponse(null, { status: 401 });
+      }
+      return HttpResponse.arrayBuffer(png.buffer.slice(0), {
+        headers: { 'Content-Type': 'image/png' },
+      });
+    }),
+  );
+  return requests;
+}
+
+/** Check that a request carries the given header value. */
+export const hasHeader = (name, value) => (request) => request.headers.get(name) === value;
+
+/** Check that a request carries the given query parameter value. */
+export const hasQuery = (name, value) => (request) => new URL(request.url).searchParams.get(name) === value;
+
+/** Check that a request carries HTTP Basic credentials for user:password. */
+export const hasBasicAuth = (user, password) => (request) =>
+  request.headers.get('authorization') === `Basic ${btoa(`${user}:${password}`)}`;
+
+/**
+* Fill and submit the API key / token login form.
+*
+* @param {import('@playwright/test').Page} page
+* @param {string} token
+*/
+export async function submitApiKey(page, token) {
+  const modal = page.locator('#stac-browser-auth-modal');
+  await expect(modal).toBeVisible();
+  await modal.locator('input[type="password"]').fill(token);
+  await modal.getByRole('button', { name: /submit/i }).click();
+}
+
+/**
+* Fill and submit the HTTP Basic login form.
+*
+* @param {import('@playwright/test').Page} page
+* @param {string} user
+* @param {string} password
+*/
+export async function submitBasicAuth(page, user, password) {
+  const modal = page.locator('#stac-browser-auth-modal');
+  await expect(modal).toBeVisible();
+  await modal.locator('#basicUser').fill(user);
+  await modal.locator('#basicPassword').fill(password);
+  await modal.getByRole('button', { name: /submit/i }).click();
+}
+
 // ─── Page interaction Helpers ──────────────────────────────────────────────
 
 /**

@@ -121,6 +121,13 @@
     "storeAs": "Salvează codul ca:",
     "installDependencies": "Instalează dependințele:"
   },
+  "favorites": {
+    "exportFormats": {
+      "csv": "CSV",
+      "excel": "Excel",
+      "json": "JSON"
+    }
+  },
   "featureExperimental": "Această funcție este încă experimentală și poate da rezultate neașteptate!",
   "features": {
     "noProperties": "Nu au fost furnizate proprietăți."
@@ -164,6 +171,10 @@
     "showFilter": "Afișează filtre"
   },
   "loading": "Încărcare...",
+  "manage": {
+    "edit": "Editare",
+    "save": "Salvare"
+  },
   "map": "Hartă",
   "mapping": {
     "attribution": {
@@ -185,6 +196,7 @@
       "westLon": "Longitudine vestică"
     },
     "close": "Închidere",
+    "displayLimit": {},
     "layers": {
       "base": "Straturi de bază",
       "footprint": "Amprentă la sol",
@@ -230,6 +242,8 @@
   "poweredBy": "Cu sprijinul {link}",
   "programming": {
     "csharp": "C#",
+    "curl": "cURL",
+    "go": "Go",
     "java": "Java",
     "javascript": "JavaScript",
     "python": "Python",

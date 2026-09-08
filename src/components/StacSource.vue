@@ -1,8 +1,40 @@
 <template>
   <nav class="share">
     <b-button-group>
+      <StacActions v-if="data" :data="data" variant="outline-primary" size="sm" bare />
+      <b-dropdown
+        v-if="canManage" size="sm" variant="outline-primary" tabindex="0"
+      >
+        <template #button-content>
+          <b-icon-gear-fill /><span class="button-label">{{ $t('source.manage') }}</span>
+        </template>
+        <b-dropdown-item v-if="canAddCollections" :to="browserPaths.addCollection">
+          <b-icon-folder-plus /> {{ $t('manage.addCollection') }}
+        </b-dropdown-item>
+        <b-dropdown-item v-if="canAddItems" :to="browserPaths.addItem">
+          <b-icon-file-plus /> {{ $t('manage.addItem') }}
+        </b-dropdown-item>
+        <b-dropdown-item
+          v-if="externalCreateLink" :href="externalCreateLink.getAbsoluteUrl()"
+          target="_blank" rel="noopener noreferrer"
+        >
+          <b-icon-file-plus /> {{ externalCreateLink.title || $t('manage.create') }}
+        </b-dropdown-item>
+        <b-dropdown-item v-if="canEdit" :to="browserPaths.edit">
+          <b-icon-pencil /> {{ $t('manage.edit') }}
+        </b-dropdown-item>
+        <b-dropdown-item
+          v-if="externalEditLink" :href="externalEditLink.getAbsoluteUrl()"
+          target="_blank" rel="noopener noreferrer"
+        >
+          <b-icon-pencil /> {{ externalEditLink.title || $t('manage.edit') }}
+        </b-dropdown-item>
+        <b-dropdown-item v-if="canDelete" @click="confirmDelete = true">
+          <b-icon-trash /> {{ $t('manage.delete') }}
+        </b-dropdown-item>
+      </b-dropdown>
       <b-button
-        v-if="stacUrl" size="sm" variant="outline-primary" id="popover-link-btn"
+        v-if="url" size="sm" variant="outline-primary" id="popover-link-btn"
         :title="$t('source.detailsAboutSource')" tag="a" tabindex="0"
       >
         <b-icon-info-lg /><span class="button-label">{{ $t('source.label') }}</span>
@@ -16,13 +48,13 @@
     </b-button-group>
 
     <b-popover
-      v-if="stacUrl" id="popover-link" class="popover-large" target="popover-link-btn"
+      v-if="url" id="popover-link" class="popover-large" target="popover-link-btn"
       placement="bottom" :title="$t('source.title')" teleport-to="#stac-browser" strategy="fixed"
       click focus :boundary-padding="10"
       v-model="popoverLinkVisible"
     >
       <template #default>
-        <template v-if="stac">
+        <template v-if="data">
           <b-row v-if="stacId" class="stac-id">
             <b-col cols="4">{{ $t('source.id') }}</b-col>
             <b-col>
@@ -34,15 +66,19 @@
             <b-col cols="4">{{ $t('source.stacVersion') }}</b-col>
             <b-col>{{ stacVersion }}</b-col>
           </b-row>
+          <b-row v-if="!allowSelectCatalog" class="stac-external">
+            <b-col cols="4">{{ $t('source.externalData') }}</b-col>
+            <b-col>{{ $t(`checkbox.${isExternalContext}`) }}</b-col>
+          </b-row>
           <b-row class="stac-valid">
             <b-col cols="4">{{ $t('source.valid') }}</b-col>
             <b-col>
-              <Validation v-if="popoverLinkVisible !== null" :data="stac" />
+              <Validation v-if="popoverLinkVisible !== null" :data="data" />
             </b-col>
           </b-row>
           <hr>
         </template>
-        <Url id="stacUrl" :url="stacUrl" :label="$t('source.locatedAt')" />
+        <Url id="url" :url="url" :label="$t('source.locatedAt')" />
       </template>
     </b-popover>
     <b-popover
@@ -56,52 +92,61 @@
         <SocialSharing :text="sharingMessage" :title="title" :url="browserUrl()" />
       </template>
     </b-popover>
+    <ConfirmModal
+      v-model="confirmDelete" :title="$t('manage.confirmDeleteTitle')"
+      :confirmLabel="$t('manage.delete')" :busy="deleting" @confirm="deleteThis"
+    >
+      <p>{{ $t('manage.confirmDeleteMessage') }}</p>
+      <p>{{ $t('manage.noUndo') }}</p>
+    </ConfirmModal>
   </nav>
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapGetters, mapState } from 'vuex';
 import { defineAsyncComponent } from 'vue';
+import { BDropdown, BDropdownItem } from 'bootstrap-vue-next';
 
 import Url from './Url.vue';
 import CopyButton from './CopyButton.vue';
 import SocialSharing from './SocialSharing.vue';
+import { getErrorMessage } from '../store/utils.js';
 
 export default {
   name: "StacSource",
   components: {
+    BDropdown,
+    BDropdownItem,
     Url,
     CopyButton,
     SocialSharing,
     BPopover: defineAsyncComponent(() => import('bootstrap-vue-next').then(m => m.BPopover)),
+    ConfirmModal: defineAsyncComponent(() => import('./ConfirmModal.vue')),
+    StacActions: defineAsyncComponent(() => import('./StacActions.vue')),
     Validation: defineAsyncComponent(() => import('./Validation.vue'))
   },
   props: {
     title: {
       type: String,
       required: true
-    },
-    stacUrl: {
-      type: String,
-      default: null
-    },
-    stac: {
-      type: Object,
-      default: null
     }
   },
   data() {
     return {
-      popoverLinkVisible: null // null = not yet opened, true = open, false = closed
+      popoverLinkVisible: null, // null = not yet opened, true = open, false = closed
+      deleting: false,
+      confirmDelete: false
     };
   },
   computed: {
-    ...mapState(['socialSharing']),
+    ...mapState(['allowSelectCatalog', 'data', 'socialSharing', 'url']),
+    ...mapGetters(['isExternalContext', 'toBrowserPath', 'collectionLink', 'parentLink', 'rootLink']),
+    ...mapGetters('manager', ['browserPaths', 'canEdit', 'canDelete', 'canManage', 'canAddCollections', 'canAddItems', 'externalCreateLink', 'externalEditLink']),
     stacVersion() {
-      return this.stac?.stac_version;
+      return this.data?.stac_version;
     },
     stacId() {
-      return this.stac?.id;
+      return this.data?.id;
     },
     enableSocialSharing() {
       return Array.isArray(this.socialSharing) && this.socialSharing.length > 0;
@@ -109,11 +154,39 @@ export default {
     sharingMessage() {
       const url = window.location.toString();
       return this.$t('source.share.message', {title: this.title, url: url});
-    }
+    },
   },
   methods: {
     browserUrl() {
       return window.location.toString();
+    },
+    async deleteThis() {
+      this.deleting = true;
+      const link = {
+        href: this.url,
+        method: 'DELETE'
+      };
+      try {
+        await this.$store.dispatch('request', { link });
+        // Remove the deleted entity from the cache
+        this.$store.commit('clear', this.url);
+        const redirect = this.collectionLink || this.parentLink || this.rootLink;
+        let path = '/';
+        if (redirect) {
+          const redirectUrl = redirect.getAbsoluteUrl();
+          // Remove the parent entity from the cache so that its
+          // children are loaded again without the deleted entity
+          this.$store.commit('clear', redirectUrl);
+          path = this.toBrowserPath(redirectUrl);
+        }
+        this.$router.push(path);
+      } catch (error) {
+        const message = getErrorMessage(error, true);
+        this.$store.commit('showGlobalError', { error, message });
+      } finally {
+        this.deleting = false;
+        this.confirmDelete = false;
+      }
     }
   }
 };
@@ -132,5 +205,9 @@ export default {
     padding-top: 0.1rem;
     padding-bottom: 0.1rem;
     font-size: 0.7rem;
+}
+
+#popover-link .row + .row {
+    margin-top: 0.25rem;
 }
 </style>

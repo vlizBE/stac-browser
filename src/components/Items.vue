@@ -3,33 +3,39 @@
     <header>
       <h2 class="title me-2">{{ $t('stacItem', items.length ) }}</h2>
       <b-badge v-if="itemCount !== null" pill variant="secondary" class="me-4">{{ itemCount }}</b-badge>
-      <SortButtons v-if="!api && items.length > 1" v-model="sort.direction" />
+      <ViewButtons v-if="!enforceView" class="me-2" v-model="view" />
+      <SortButtons v-if="allowSorting" v-model="sort.direction" />
     </header>
 
     <Pagination
-      v-if="showPagination" ref="topPagination" class="mb-3" :class="{'me-3': allowFilter}"
+      v-if="showPagination" ref="topPagination" class="mb-3" :class="{'me-3': canFilter}"
       :pagination="pagination" placement="top" @paginate="paginate"
     />
-    <template v-if="allowFilter">
+    <template v-if="canFilter">
       <b-button v-if="api" class="mb-3" v-b-toggle.itemFilter :variant="hasFilters && !filtersOpen ? 'primary' : 'outline-primary'">
         <b-icon-filter />
         {{ filtersOpen ? $t('items.hideFilter') : $t('items.showFilter') }}
         <b-badge v-if="hasFilters && !filtersOpen" variant="dark">{{ filterCount }}</b-badge>
+        <b-badge v-if="hasUnappliedChanges" variant="warning" :title="$t('items.filterChangesNotApplied')">!</b-badge>
       </b-button>
       <b-collapse id="itemFilter" v-model="filtersOpen">
         <SearchFilter
           type="Items"
           :title="$t('items.filter')" :parent="stac"
           :searchLink="itemSearchLink"
-          :value="apiFilters" @input="emitFilter"
+          @input="emitFilter"
         />
       </b-collapse>
     </template>
 
     <section class="list">
       <Loading v-if="loading" fill top />
-      <div v-if="chunkedItems.length > 0" class="card-grid">
-        <Item v-for="item in chunkedItems" :item="item" :key="item.href" />
+      <div v-if="chunkedItems.length > 0" :class="view === 'list' ? 'card-list' : 'card-grid'">
+        <Item v-for="item in chunkedItems" :item="item" :viewMode="view" :key="item.href">
+          <template v-if="$slots.footer" #footer="slot">
+            <slot name="footer" v-bind="slot" />
+          </template>
+        </Item>
       </div>
       <b-alert v-else :variant="hasFilters ? 'warning' : 'info'" show>
         <template v-if="hasFilters">{{ $t('search.noItemsFound') }}</template>
@@ -43,15 +49,18 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapGetters, mapState } from 'vuex';
 import { BCollapse } from 'bootstrap-vue-next';
 import { defineComponent, defineAsyncComponent } from 'vue';
 
 import Utils from '../utils';
+import ViewMixin from './ViewMixin';
 import { size } from 'stac-js/src/utils.js';
 import Item from './Item.vue';
 import Loading from './Loading.vue';
+import ViewButtons from './ViewButtons.vue';
 import { sortStac } from '../models/stac';
+import { FILTER_FIELDS } from '../store/modules/search';
 
 export default defineComponent({
   name: "Items",
@@ -61,8 +70,10 @@ export default defineComponent({
     Loading,
     Pagination: defineAsyncComponent(() => import('./Pagination.vue')),
     BCollapse,
-    SortButtons: defineAsyncComponent(() => import('./SortButtons.vue'))
+    SortButtons: defineAsyncComponent(() => import('./SortButtons.vue')),
+    ViewButtons
   },
+  mixins: [ViewMixin],
   props: {
     items: {
       type: Array,
@@ -72,17 +83,22 @@ export default defineComponent({
       type: Boolean,
       default: false
     },
+    // The parent STAC entity, only required for filtering (see allowFilter)
     stac: {
       type: Object,
-      required: true
+      default: null
     },
     api: {
       type: Boolean,
       default: false
     },
+    showControls: {
+      type: Boolean,
+      default: false
+    },
     allowFilter: {
       type: Boolean,
-      default: true
+      default: false
     },
     showFilters: {
       type: Boolean,
@@ -98,11 +114,13 @@ export default defineComponent({
     },
     chunkSize: {
       type: Number,
-      default: 90
+      default: 90,
+      validator: value => value > 0
     },
     count: {
       type: Number,
-      default: null
+      default: null,
+      validator: value => value === null || value >= 0
     }
   },
   emits: ['filtersShown', 'filterItems', 'paginate'],
@@ -115,6 +133,28 @@ export default defineComponent({
   },
   computed: {
     ...mapState(['defaultItemSort', 'uiLanguage']),
+    ...mapGetters('search', ['itemSearchParams']),
+    hasUnappliedChanges() {
+      // The badge reflects the filters applied to the shown items (apiFilters);
+      // the form state in the store may have been changed without submitting.
+      const draft = this.itemSearchParams || {};
+      const applied = this.apiFilters || {};
+      // CQL filters are only rebuilt on submit, compare them by reference
+      if ((draft.filters || null) !== (applied.filters || null)) {
+        return true;
+      }
+      const normalize = (value) => {
+        if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
+          return null;
+        }
+        return value;
+      };
+      return FILTER_FIELDS.some(key => JSON.stringify(normalize(draft[key])) !== JSON.stringify(normalize(applied[key])));
+    },
+    canFilter() {
+      // Filtering requires the parent STAC entity, e.g. for the queryables
+      return this.allowFilter && this.stac !== null;
+    },
     itemCount() {
       if (this.count !== null) {
         return this.count;
@@ -126,6 +166,9 @@ export default defineComponent({
     },
     hasMore() {
       return this.items.length > this.shownItems;
+    },
+    allowSorting() {
+      return this.showControls && !this.api && this.items.length > 1;
     },
     filterCount() {
       return Object.values(this.apiFilters).filter(filter => filter !== null && size(filter) > 0).length;
