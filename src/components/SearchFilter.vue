@@ -43,10 +43,13 @@
             :placeholder="$t('search.selectDateRange')"
             :time-config="{ 
               enableTimePicker: true, 
-              seconds: true,
-              timePickerInline: true 
+              enableSeconds: true,
+              timePickerInline: true,
+              ignoreTimeValidation: true
             }"
             :input-attrs="{ clearable: true }"
+            text-input
+            timezone="UTC"
             :min-date="temporalExtent?.[0]"
             :max-date="temporalExtent?.[1]"
             :start-date="temporalExtent?.[1]"
@@ -194,7 +197,7 @@ import Loading from './Loading.vue';
 
 import { CollectionCollection, STAC } from 'stac-js'; 
 import { createSTAC } from '../models/stac';
-import Cql from '../models/cql2/cql';
+import Cql, { isCompleteFilter } from '../models/cql2/cql';
 import { formatPropertyKey } from '../models/cql2/queryable';
 import CqlLogicalOperator, { CqlNot } from '../models/cql2/operators/logical';
 import { fetchQueryablesForLink, fetchSchemaProperties } from '../search-schemas';
@@ -448,10 +451,10 @@ export default defineComponent({
     datetime: {
       get() {
         const dt = this.activeParams.datetime;
-        return Array.isArray(dt) ? dt.map(d => Utils.dateFromUTC(d)) : null;
+        return Array.isArray(dt) ? dt : null;
       },
       set(val) {
-        const dt = Array.isArray(val) ? val.map(d => Utils.dateToUTC(d)) : null;
+        const dt = Array.isArray(val) ? val.map(d => d && new Date(d.getTime())) : null;
         this.commitToVuex('datetime', dt);
       }
     },
@@ -804,10 +807,11 @@ export default defineComponent({
       this.sortables = sortables.map(([key, schema]) => ({ value: key, title: schema.title }));
     },
     buildFilter() {
-      if (this.filters.length === 0) {
+      const filters = this.filters.filter(isCompleteFilter);
+      if (filters.length === 0) {
         return null;
       }
-      const args = this.filters.map(f => {
+      const args = filters.map(f => {
         let filter = new f.operator(f.queryable, f.value);
         if (f.negate) {
           filter = new CqlNot(filter);

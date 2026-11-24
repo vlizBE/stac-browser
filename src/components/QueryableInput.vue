@@ -233,11 +233,13 @@ export default {
         closeOnScroll: false,
         timeConfig: {
           enableTimePicker: this.queryable.isDateTime,
-          seconds: this.queryable.isDateTime,
+          enableSeconds: this.queryable.isDateTime,
           timePickerInline: true
         },
         inputAttrs: { clearable: true },
-        autoApply: true
+        autoApply: true,
+        textInput: true,
+        timezone: 'UTC'
       };
     },
     listValues() {
@@ -292,7 +294,7 @@ export default {
         return;
       }
       const dates = this.listValues.slice(0);
-      dates[index] = date;
+      dates[index] = new Date(date.getTime());
       this.updateValue(dates);
     },
     removeTemporalValue(index) {
@@ -334,6 +336,9 @@ export default {
       }
     },
     castValue(value) {
+      if (value instanceof Date) {
+        return new Date(value.getTime());
+      }
       if (typeof value !== "string") {
         return value;
       }
