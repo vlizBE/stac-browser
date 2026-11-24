@@ -1,5 +1,3 @@
-import Utils from "../../utils";
-
 export default class CqlValue {
 
   constructor(value) {
@@ -49,7 +47,7 @@ export class CqlTimestamp extends CqlValue {
   }
 
   toTimestamp() {
-    return Utils.dateToUTC(this.value).toISOString();
+    return this.value.toISOString();
   }
 
 }
@@ -65,7 +63,8 @@ export class CqlString extends CqlValue {
   }
 
   toText() {
-    return `'${this.value.replace("'", "''")}'`;
+    // How to write a backslash is not defined by CQL2 yet: https://github.com/opengeospatial/ogcapi-features/issues/1133
+    return `'${this.value.replaceAll('\\', '\\\\').replaceAll("'", "''")}'`;
   }
 
 }

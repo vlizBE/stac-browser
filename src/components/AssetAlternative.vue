@@ -1,11 +1,20 @@
 <template>
   <div class="asset-alternative">
-    <h4 class="mb-4" v-html="fileFormat" />
+    <WidgetHook id="asset-start" :context="{ asset }" />
+    <p v-if="definition" class="small text-body-secondary" :class="fileFormat ? 'mb-3' : 'mb-0'">
+      <b-icon-info-circle class="me-1" />
+      <i18n-t keypath="assets.definition" scope="global">
+        <template #key><code>{{ assetKey }}</code></template>
+      </i18n-t>
+    </p>
+    <h4 v-if="fileFormat" class="mb-4" v-html="fileFormat" />
     <HrefActions isAsset :data="asset" :auth="auth" />
+    <WidgetHook id="asset-actions-end" :context="{ asset }" />
     <div class="mt-4" v-if="asset.description">
       <Description :description="asset.description" compact />
     </div>
     <MetadataGroups class="mt-4" :data="resolvedAsset" :ignoreFields="ignoredMetadataFields" title="" type="Asset" />
+    <WidgetHook id="asset-end" :context="{ asset }" />
   </div>
 </template>
 
@@ -34,9 +43,16 @@ export default {
     asset: {
       type: Object,
       required: true
+    },
+    definition: {
+      type: Boolean,
+      default: false
     }
   },
   computed: {
+    assetKey() {
+      return this.asset.isAlternate ? this.asset.getContext().getKey() : this.asset.getKey();
+    },
     ignoredMetadataFields() {
       return getIgnoredFields(this.asset);
     },

@@ -262,6 +262,51 @@ test.describe('Collection Metadata', () => {
     await expect(page.locator('.providers')).toBeVisible();
     await expect(page.locator('.assets').first()).toBeVisible();
   });
+
+  // Regression test for https://github.com/radiantearth/stac-browser/issues/1074
+  test('Catalog - item asset definitions show their key', async ({ page, worker }) => {
+    const { catalog, collection } = createStaticCatalog();
+    collection.setMetadata({
+      item_assets: {
+        model: { title: 'Model', roles: ['model'] }
+      }
+    });
+    await catalog.createServer(worker);
+
+    await page.goto(collection.getBrowserPath());
+    await waitForBrowserReady(page);
+
+    const definition = page.locator('.assets', { has: page.getByRole('heading', { name: 'Asset in Items' }) }).locator('.asset').first();
+    await definition.getByRole('button', { name: /Model/ }).click();
+    await expect(definition.locator('.asset-alternative')).toContainText('Items provide this asset with the key model.');
+    await expect(definition.locator('.asset-alternative code')).toHaveText('model');
+  });
+
+  test('Catalog - alternates of item asset definitions show the key of the main asset', async ({ page, worker }) => {
+    const { catalog, collection } = createStaticCatalog();
+    collection.setMetadata({
+      item_assets: {
+        model: {
+          title: 'Model',
+          roles: ['model'],
+          alternate: {
+            s3: { 'alternate:name': 'S3' }
+          }
+        }
+      }
+    });
+    await catalog.createServer(worker);
+
+    await page.goto(collection.getBrowserPath());
+    await waitForBrowserReady(page);
+
+    const definition = page.locator('.assets', { has: page.getByRole('heading', { name: 'Asset in Items' }) }).locator('.asset').first();
+    await definition.getByRole('button', { name: /Model/ }).click();
+    await definition.getByRole('tab', { name: 'S3' }).click();
+    const alternative = definition.locator('.tab-pane.active .asset-alternative');
+    await expect(alternative).toContainText('Items provide this asset with the key model.');
+    await expect(alternative.locator('code')).toHaveText('model');
+  });
 });
 
 test.describe('Collection - toolBar', () => {
@@ -505,6 +550,21 @@ test.describe('STAC Collection item search', () => {
     await expect(await page.getByLabel(/spatial extent/i)).toBeVisible();
     await expect(await page.getByPlaceholder(/select date range/i)).toBeVisible();
   });
+
+  test('date range can be typed into the date filter', async ({ page, worker }) => {
+    const { api, collection } = createAPIWithSearch();
+    await api.createServer(worker);
+    await page.goto(collection.getBrowserPath());
+    await page.getByRole('button', { name: /show filters/i }).click();
+
+    const input = page.getByPlaceholder(/select date range/i);
+    await input.fill('2021-03-04 10:20:30 - 2021-03-05 11:22:33');
+    await input.press('Enter');
+    const request = page.waitForRequest(r => r.url().includes('/collections/collection1/items'));
+    await page.getByRole('button', { name: /submit/i }).click();
+    const url = new URL((await request).url());
+    expect(url.searchParams.get('datetime')).toBe('2021-03-04T10:20:30.000Z/2021-03-05T11:22:33.000Z');
+  });
     
   test('configured default sort is not reported as unapplied filter change', async ({ page, worker }) => {
     const { api, collection } = createAPIWithSearch();
@@ -660,4 +720,52 @@ test.describe('STAC Collection item search', () => {
     await expect(itemCards).toHaveCount(5);
     await expect(prevButton).toBeDisabled();
   });
+
+  // The extent starts late in the UTC day, which is already the next day east of UTC.
+  for (const timezoneId of ['UTC', 'Europe/Zurich', 'America/Los_Angeles']) {
+    test.describe(`in time zone ${timezoneId}`, () => {
+      test.use({ timezoneId });
+
+      test('date filter allows the first and last day of the temporal extent', async ({ page, worker }) => {
+        const { api, collection } = createAPIWithSearch();
+        collection.setMetadata({
+          extent: {
+            spatial: collection.getMetadata().extent.spatial,
+            temporal: { interval: [['2005-07-01T23:59:59Z', '2005-07-31T00:00:01Z']] }
+          }
+        });
+        await api.createServer(worker);
+        await page.goto(collection.getBrowserPath());
+        await page.getByRole('button', { name: /show filters/i }).click();
+
+        const input = page.getByPlaceholder(/select date range/i);
+        const day = (date) => page.locator(`[data-test-id="dp-${date}"]`).first();
+
+        await test.step('Calendar enables the first and last day of the extent only', async () => {
+          await input.click();
+          await expect(day('2005-07-01')).toBeEnabled();
+          await expect(day('2005-07-31')).toBeEnabled();
+          await expect(day('2005-06-30')).toBeDisabled();
+          await expect(day('2005-08-01')).toBeDisabled();
+          await page.keyboard.press('Escape');
+        });
+
+        await test.step('A typed range is sent as UTC', async () => {
+          await input.fill('2005-07-01 00:00:00 - 2005-07-01 23:59:59');
+          await input.press('Enter');
+          const request = page.waitForRequest(r => r.url().includes('/collections/collection1/items'));
+          await page.getByRole('button', { name: /submit/i }).click();
+          const url = new URL((await request).url());
+          expect(url.searchParams.get('datetime')).toBe('2005-07-01T00:00:00.000Z/2005-07-01T23:59:59.000Z');
+        });
+
+        await test.step('The first day can be clicked, although the extent starts late that day', async () => {
+          await input.click();
+          await day('2005-07-01').click();
+          await day('2005-07-01').click();
+          await expect(input).toHaveValue(/^2005-07-01 .+ - 2005-07-01 /);
+        });
+      });
+    });
+  }
 });
